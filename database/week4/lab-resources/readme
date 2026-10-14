@@ -1,0 +1,19 @@
+Make sure you have Python(>=3.12) installed on your machine. Follow the steps below to setup the environment and run the code:
+
+1) Create and activate the python environment:
+
+python -m venv ./genai-sql
+source genai-sql/bin/activate
+pip install -r requirements.txt
+
+2) Open the prompt-llm.py script and update the "query" variable (at line 63) value with your specific input query, 
+
+
+3) Call the prompt-llm.py script as folows: 
+
+python prompt-llm.py -prompt <path-to-prompt-file> -key <path-to-open-ai-key-file>
+
+Eg run: python prompt-llm.py -prompt ./gift-prompt -key ./openai-key
+
+4) To change the OpenAI model used, set the variable "model_name" (at line 26). Gpt5 does not allow setting the temperature parameter, you will need to remove it. 
+

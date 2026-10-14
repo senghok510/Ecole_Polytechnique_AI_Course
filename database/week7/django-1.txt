@@ -1,0 +1,113 @@
+Building a web application using Django to connect to Postgres
+
+Ioana Manolescu, Madhulika Mohanty, Garima Gaur
+
+This tutorial  guides you on how to run a Django web application, hosted in the Django web server, which will connect to PostgreSQL database
+and get the result of running a simple query on the database.
+
+PART ONE: INSTALLING AND LAUNCHING A WEB SERVER; BASIC APPLICATION
+
+1- Make sure that you have python3 and django installed in your machine. If you have both of them, this should return the current version of Django:
+
+$ python3 -m django --version
+
+If you do not have django, you can install it from here: https://www.djangoproject.com/download/
+
+2- Create the Django project using the instruction:
+
+$ django-admin startproject django_postgres_site
+
+3- Go in the django_postgres_site folder. To launch a Web server local to your machine, call:
+
+$ python3 manage.py runserver
+
+You can visit http://127.0.0.1:8000/ with your Web browser to test that the server is running.
+
+Launched as above, the server keeps control of the terminal thus you cannot type other commands in the same terminal.
+You can either suspend it then make it into the background (CTRL-Z then bg on Unix/Linux), or type the commands below in a different terminal. 
+
+4- A Django Web project consists of one or more applications.  We will start by creating an application called csc51053. Still in the same site directory, run:
+
+$ python3 manage.py startapp csc51053
+
+That’ll create a directory csc51053 which will house the csc51053 application.
+
+5- Django models a Web application as a set of "views" (not to be confused with DBMS views defined in SQL by writing "CREATE VIEW..." etc.)
+Each Django view contains a set of functions (code that the Web server calls when receiving HTTP requests for specific URLs). 
+
+Write a Django view, which connects to the PostgreSQL server and brings all the table name in the current database, as follows. 
+Open the file csc51053/views.py and put the following Python code in it, then modify the configuration of the connection to your Postgres database
+by using the correct values for user, password, dbname, and port (if needed): 
+
+from django.shortcuts import render
+from django.http import HttpResponse
+# Create your views here.
+import psycopg2
+def index(request):
+     # Database connection variables:
+    host = "localhost"
+    dbname="postgres"
+    user="postgres"
+    password=""
+    port=5432
+    # Opening a connection to Postgres:  
+    con = psycopg2.connect(host=host, dbname=dbname,  user=user, password=password, port=port)
+    query = """SELECT tablename
+FROM pg_catalog.pg_tables
+WHERE schemaname != 'pg_catalog' AND
+    schemaname != 'information_schema'; """
+    print(query)
+    # Via the connection, opening a cursor: 
+    cur = con.cursor()
+    # Running the query to get the results in the cursor: 
+    cur.execute(query)
+    result = cur.fetchall()
+    print(result)
+    response = "the tables of the database [" + dbname + "] are:[\n"
+    for table in result:
+      response += table[0]+", "
+    response+="]"
+    # Returning an HTTP response that the Web server can use to return an HTML page in response: 
+    return HttpResponse(response)
+
+6- Tell the Django server which URL component (inside the csc51053 application)  maps to which function.
+For that, create a file called urls.py inside the csc51053 directory and put the following code:
+
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("", views.index, name="index"),
+]
+
+
+7- Tell the Django server which URL components (when users connect to the Web site) map to which applications. For that, edit the file
+django_postgres_site/django_postgres_site/urls.py
+(not to be confused with the previous file - this is in a different directory!) to make sure it includes all these lines:  
+
+from django.contrib import admin
+from django.urls import include, path
+
+urlpatterns = [
+    path("csc51053/", include("csc51053.urls")),
+    path("admin/", admin.site.urls),
+]
+
+
+8- Stop the server (CTRL-C where you launched it), then re-launch it by running again: 
+
+$ python3 manage.py runserver
+
+If you get an error related to psycopg2, install the library using "pip install psycopg2-binary".
+
+9- Check that everything is working fine by pointing a browser at: http://127.0.0.1:8000/csc51053
+
+
+Troubleshooting
+
+If at some point you get an error of the form "Library not loaded: libpq.5.dylib", try
+
+pip3 uninstall psycopg2
+pip3 install psycopg2-binary
+
+then restart the server. 

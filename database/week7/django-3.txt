@@ -1,0 +1,92 @@
+Building a web application using Django to connect to Postgres
+
+Ioana Manolescu, Madhulika Mohanty, Garima Gaur
+
+PART THREE: TAKING USER INPUT FROM A WEBPAGE AND RETURNING RESULTS FROM BACKEND
+
+We will now use templates to take user inputs and customise the outputs.
+
+1- Add an input form with one textbox and a submit button (Go) to the index.html page created in the previous part. Put it just before </body>
+
+ <form action="/csc51053/tabledata/" method="post">{% csrf_token %}
+    <label for="yourtable">Enter a table to see its content: </label>
+    <input id="yourtable" type="text" name="yourtable" value="{{ current_name }}">
+    <input type="submit" value="Go">
+ </form>
+
+This adds a textbox and button to the page displayed when connecting to http://127.0.0.1:8000/csc51053/
+Note that we ask the server to call http://127.0.0.1:8000/csc51053/tabledata when the user fills in the textbox and clicks the button. 
+We still have steps to do before the form actually works (see below).
+
+2- We will now create a form class for our site by creating a file forms.py under csc51053 (the top-level folder under django_postgres_site) with the following content:
+
+from django import forms
+
+class NameForm(forms.Form):
+    yourtable = forms.CharField(label="Your Table", max_length=100)
+
+We will then add to csc51053/views.py the tabledata function to process our requests, by adding the following (make necessary changes for access credentials):
+
+from .forms import NameForm
+import psycopg2
+from psycopg2 import sql
+
+# Create your views here.
+def tabledata(request):
+    if request.method == "POST":
+        # create a form instance and populate it with data from the request:
+        form = NameForm(request.POST)
+        # check whether it's valid:
+        if form.is_valid():
+            # Database connection variables: 
+            host = "localhost"
+            dbname="postgres"
+            user="postgres"
+            password=""
+            port=5432
+            # Connecting to postgres and querying the catalog for primary key-foreign key pairs: 
+            con = psycopg2.connect(host=host,dbname=dbname,  user=user, password=password, port=port)
+            cur = con.cursor()
+            user_table = form.cleaned_data['yourtable']
+            cur.execute(sql.SQL("SELECT * FROM {table} LIMIT 10").format(table=sql.Identifier(user_table)))
+            data = cur.fetchall()
+            template = loader.get_template('csc51053/index.html')
+            context = {
+                'data': data,
+            }
+        return render(request, 'csc51053/tabledata.html', {'data': data})
+    # if a GET (or any other method) we'll create a blank form
+    else:
+        form = NameForm()
+    return render(request, 'csc51053/')
+
+The above function reads the user input as a table name and fetches
+its content. It then passes the content to tabledata.html for display;
+we create this file next.
+
+3- In the directory csc51053/templates/csc51053, create a file named tabledata.html with the following content:
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>My table data</title>
+  </head>
+  <body>
+  	<h1>Here are 10 tuples from the selected table: </h1>
+    <ul>
+    {% for row in data %}
+        {{ row }}<br>
+    {% endfor %}
+    </ul>
+  </body>
+</html>
+
+4- Finally, add the URLpattern to csc51053/urls.py:
+
+path("tabledata/", views.tabledata, name="tabledata"),
+
+This directs Django to execute the function tabledata() when /tabledata is called.
+
+5- Refresh the homepage of the application: http://127.0.0.1:8000/csc51053/ and input a table name from the list. Submit the input and verify that the page indeed goes to http://127.0.0.1:8000/csc51053/tabledata/ and that 10 tuples of the selected table are displayed.
+

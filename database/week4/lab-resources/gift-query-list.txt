@@ -1,0 +1,4 @@
+Write me a SQL query to return top 5 category of gifts which cost more than 7000.
+Write me a SQL query to return top 5 contributor for gifts.
+For each category (including those with no support), find the category name and the total support. Provide one SQL variant using an outerjoin, and another without.
+Write me a SQL to get all gifts that can be gifted to Trump who likes costly gifts of more than 10000.

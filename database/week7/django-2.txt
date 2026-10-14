@@ -1,0 +1,77 @@
+Building a web application using Django to connect to Postgres
+
+Ioana Manolescu, Madhulika Mohanty, Garima Gaur
+
+PART TWO: FORMATTING THE CONTENT OF WEB PAGES AS HTML  
+
+To separate the Web code (HTML) from Python code, we use Django’s template system. We create a template, that a view can then use.
+To do that:
+
+1- Create a directory called "templates" in your csc51053 directory. Django will look for templates in there.
+
+$ mkdir templates
+
+2- Create a subdirectory templates/csc51053 (the last directory also named after the application). 
+
+$ mkdir csc51053
+
+4- Create an index.html page inside templates/csc51053 with the following content:
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>My test page</title>
+  </head>
+  <body>
+  	<h1>The tables of the current database are: </h1>
+    <ul>
+    {% for table in tables %}
+        <li>{{ table.0 }}</li>
+    {% endfor %}
+    </ul>
+  </body>
+</html>
+
+5- Inside the file django_postgres_site/django_postgres_site/settings.py,  add this line to the INSTALLED_APPS list: 'csc51053.apps.Csc51053Config',
+
+6- In the top django_postgres_site directory, run: python3 manage.py migrate
+
+7- Replace the content of the file  csc51053/views.py  with (ensure to make necessary changes to the database access credentials): 
+
+from django.template import loader
+from django.shortcuts import render
+from django.http import HttpResponse
+# Create your views here.
+import psycopg2
+def index(request):
+     # Database connection variables:
+    host = "localhost"
+    dbname="postgres"
+    user="postgres"
+    password=""
+    port=5432
+    # Opening a connection to Postgres:  
+    con = psycopg2.connect(host=host, dbname=dbname,  user=user, password=password, port=port)
+    query = """SELECT tablename
+FROM pg_catalog.pg_tables
+WHERE schemaname != 'pg_catalog' AND
+    schemaname != 'information_schema'; """
+    print(query)
+    # Via the connection, opening a cursor: 
+    cur = con.cursor()
+    # Running the query to get the results in the cursor: 
+    cur.execute(query)
+    tables = cur.fetchall()
+    template = loader.get_template('csc51053/index.html')
+    context = {
+        'tables': tables,
+    }
+    return render(request, 'csc51053/index.html', {'tables': tables})
+
+The last line calls the render method defined by Django, giving it the tables object. The HTML template at step 6 above iterates over the content of tables,
+and prints the name (table.0) of each object therein.
+
+8- Stop the server (CTRL-C), then re-launch it. Revisit this URL: http://127.0.0.1:8000/csc51053
+You should see the same information laid out in HTML as specified by the template.
+

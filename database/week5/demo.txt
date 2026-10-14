@@ -1,0 +1,225 @@
+
+-- We will work with a table triples1, 11.000.000 integer triples;
+-- 0<=s, o <= 8000000;
+-- 0 <= p < 20
+
+\timing
+-- to know how long each operation takes
+
+create table triples1(s int, p int, o int);
+\d triples1;
+-- load the table: 
+copy triples1 from '/Users/ioana.manolescu/GITLAB/inf553/trunk/2025/SLIDES/5-OPERATORS/triples1.csv';
+-- this took  3635,060 ms
+-- 3635/11000000 = .00033045454545454545 ms per tuple, that's not a lot!
+
+-- create an index: 
+-- B+ tree index created on s; unclustered
+
+create index on triples1(s);
+\d triples1; 
+
+-- let's see if the index is used! Explain asks Postgres to tell us
+-- how it would evaluate the query (not evaluate it) 
+explain select o from triples1 where s < 2900000; 
+-- with more details:  
+explain (verbose) select o from triples1 where s < 2900000 ;
+-- explain analyze also runs the query, thus we get two sets of
+-- information:
+-- - the optimizer's estimations of the execution times and numbers
+--    of results
+-- - the actual execution time and number of results
+explain (analyze, costs, verbose) select o from triples1 where s < 2900000 ;
+
+-- we can change the constant to be basically as high as the largest
+-- value; in this case, the query returns all tuples; 
+explain (analyze, costs, verbose) select o from triples1 where s < 8000000 ;
+
+-- vacuum optimizes the disk usage (compacts the data pages in files)
+-- analyze is asks PostgreSQL to build more detailed statistics about the table and
+-- store them. After analyze, PostgreSQL has a better idea about the
+-- properties of the data and may better optimize a query
+vacuum analyze; 
+
+-- inspect the plans Postgres makes now: 
+explain select o from triples1 where s < 8000000;
+
+explain select o from triples1 where s < 2000000;
+
+explain select o from triples1 where s < 4000000;
+
+-- cluster the index: 11 million records are physically recopied
+-- in the stable storage, to put them in the leaves of the index!
+cluster triples1 using triples1_s_idx;
+-- This took 19507,594 ms (5 times more than loading the table)!
+-- B+tree bulkloading is used
+-- Still, because the index is clustered, few records fit in a data
+-- leaf page
+\d triples1;
+
+-- inspect more plans: 
+explain select o from triples1 where s < 2900000; -- selective
+explain select o from triples1 where s < 8000000; -- not selective at all
+
+-- run again vacuum analyze to make sure the optimizer has
+-- the latest information about our table: 
+vacuum analyze; 
+
+-- re-inspect the plans: 
+explain select o from triples1 where s < 2900000;
+explain select o from triples1 where s < 8000000;
+
+-- insert a tuple in the table, with the lowest s value: 
+-- (at the lowest left leaf in the index):
+insert into triples1 values (0, 0, 0);
+-- this took 1,958 ms, basically 2ms for a single tuple!
+-- contrast with the high efficiency for bulk loading the relation
+-- (above) as long as there was no index
+-- now insert a tuple with highest s value so far: 
+insert into triples values (9000000, 100, 100);
+-- this took 1,150 ms, still high
+
+-- let's redo things in another order: 
+drop tables triples1; 
+-- this also drops the index
+-- re-create the table: 
+create table triples1(s int, p int, o int);
+-- create the index and cluster it now (on an empty table) 
+create index on triples1(s);
+cluster triples1 using triples1_s_idx;
+-- now reload the table:
+copy triples1 from '/Users/ioana.manolescu/GITLAB/inf553/trunk/2025/SLIDES/5-OPERATORS/triples1.csv';
+-- This took 25788,998 ms instead of 3635 ms without the index!
+-- Again, we pay the cost of node splits.
+
+
+-- Another index usage scenario, this time on a large IMDB database
+-- with information about movies, actors, producers, etc.
+imdb=# \d
+                     Liste des relations
+ Schéma |          Nom           |   Type   |  Propriétaire   
+--------+------------------------+----------+-----------------
+ public | aka_name               | table    | ioana.manolescu
+ public | aka_name_id_seq        | séquence | ioana.manolescu
+ public | aka_title              | table    | ioana.manolescu
+ public | aka_title_id_seq       | séquence | ioana.manolescu
+ public | cast_info              | table    | ioana.manolescu
+ public | cast_info_id_seq       | séquence | ioana.manolescu
+ public | char_name              | table    | ioana.manolescu
+ public | char_name_id_seq       | séquence | ioana.manolescu
+ public | comp_cast_type         | table    | ioana.manolescu
+ public | comp_cast_type_id_seq  | séquence | ioana.manolescu
+ public | company_name           | table    | ioana.manolescu
+ public | company_name_id_seq    | séquence | ioana.manolescu
+ public | company_type           | table    | ioana.manolescu
+ public | company_type_id_seq    | séquence | ioana.manolescu
+ public | complete_cast          | table    | ioana.manolescu
+ public | complete_cast_id_seq   | séquence | ioana.manolescu
+ public | info_type              | table    | ioana.manolescu
+ public | info_type_id_seq       | séquence | ioana.manolescu
+ public | keyword                | table    | ioana.manolescu
+ public | keyword_id_seq         | séquence | ioana.manolescu
+ public | kind_type              | table    | ioana.manolescu
+ public | kind_type_id_seq       | séquence | ioana.manolescu
+ public | link_type              | table    | ioana.manolescu
+ public | link_type_id_seq       | séquence | ioana.manolescu
+ public | movie_companies        | table    | ioana.manolescu
+ public | movie_companies_id_seq | séquence | ioana.manolescu
+ public | movie_info             | table    | ioana.manolescu
+ public | movie_info_id_seq      | séquence | ioana.manolescu
+ public | movie_info_idx         | table    | ioana.manolescu
+ public | movie_info_idx_id_seq  | séquence | ioana.manolescu
+ public | movie_keyword          | table    | ioana.manolescu
+ public | movie_keyword_id_seq   | séquence | ioana.manolescu
+ public | movie_link             | table    | ioana.manolescu
+ public | movie_link_id_seq      | séquence | ioana.manolescu
+ public | name                   | table    | ioana.manolescu
+ public | name_id_seq            | séquence | ioana.manolescu
+ public | person_info            | table    | ioana.manolescu
+ public | person_info_id_seq     | séquence | ioana.manolescu
+ public | role_type              | table    | ioana.manolescu
+ public | role_type_id_seq       | séquence | ioana.manolescu
+ public | title                  | table    | ioana.manolescu
+ public | title_id_seq           | séquence | ioana.manolescu
+(42 lignes)
+
+imdb=# \d title;
+                                          Table « public.title »
+     Colonne     |         Type          | Collationnement | NULL-able |            Par défaut             
+-----------------+-----------------------+-----------------+-----------+-----------------------------------
+ id              | integer               |                 | not null  | nextval('title_id_seq'::regclass)
+ title           | text                  |                 | not null  | 
+ imdb_index      | character varying(12) |                 |           | 
+ kind_id         | integer               |                 | not null  | 
+ production_year | integer               |                 |           | 
+ imdb_id         | integer               |                 |           | 
+ phonetic_code   | character varying(5)  |                 |           | 
+ episode_of_id   | integer               |                 |           | 
+ season_nr       | integer               |                 |           | 
+ episode_nr      | integer               |                 |           | 
+ series_years    | character varying(49) |                 |           | 
+ md5sum          | character varying(32) |                 |           | 
+Index :
+    "title_pkey" PRIMARY KEY, btree (id)
+    "title_idx_episode_nr" btree (episode_nr)
+    "title_idx_epof" btree (episode_of_id)
+    "title_idx_imdb_id" btree (imdb_id)
+    "title_idx_md5" btree (md5sum)
+    "title_idx_pcode" btree (phonetic_code)
+    "title_idx_season_nr" btree (season_nr)
+    "title_idx_title" btree (title)
+Contraintes de clés étrangères :
+    "episode_of_id_exists" FOREIGN KEY (episode_of_id) REFERENCES title(id)
+    "kind_id_exists" FOREIGN KEY (kind_id) REFERENCES kind_type(id)
+Référencé par :
+    TABLE "title" CONSTRAINT "episode_of_id_exists" FOREIGN KEY (episode_of_id) REFERENCES title(id)
+    TABLE "movie_link" CONSTRAINT "linked_movie_id_exists" FOREIGN KEY (linked_movie_id) REFERENCES title(id)
+    TABLE "cast_info" CONSTRAINT "movie_id_exists" FOREIGN KEY (movie_id) REFERENCES title(id)
+    TABLE "complete_cast" CONSTRAINT "movie_id_exists" FOREIGN KEY (movie_id) REFERENCES title(id)
+
+-- approximately 4 million tuples in "title"
+imdb=# select count(*) from title; 
+  count  
+---------
+ 3902974
+(1 ligne)
+
+-- for an exact equality selection on title, the index is used as expected: 
+imdb=# explain analyze select title, production_year from title where title='Godzilla, Big Is Beautiful'; 
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Index Scan using title_idx_title on title  (cost=0.43..97.53 rows=27 width=21) (actual time=0.634..0.637 rows=1 loops=1)
+   Index Cond: (title = 'Godzilla, Big Is Beautiful'::text)
+ Planning Time: 5.600 ms
+ Execution Time: 0.660 ms
+(4 lignes)
+
+-- if we make the selection more "fuzzy" at the end of the string, but
+-- not at the beginning, the index is still used! Note the rewriting
+-- of the selection predicate (the system has transformed the query
+-- into an interval one): 
+imdb=# explain analyze select title, production_year from title where title like 'Godzilla%'; 
+                                                         QUERY PLAN                                                         
+----------------------------------------------------------------------------------------------------------------------------
+ Index Scan using title_idx_title on title  (cost=0.43..8.45 rows=358 width=21) (actual time=0.031..0.189 rows=131 loops=1)
+   Index Cond: ((title >= 'Godzilla'::text) AND (title < 'Godzillb'::text))
+   Filter: (title ~~ 'Godzilla%'::text)
+ Planning Time: 0.122 ms
+ Execution Time: 0.207 ms
+(5 lignes)
+
+-- if we make the selection "fuzzy" at both ends, the index is no
+-- longer used: values matching thsi condition could be anywhere
+-- in the database. Thus PostgreSQL reverts to (parallel) scan.
+imdb=# explain analyze select title, production_year from title where title like '%Godzilla%'; 
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..77133.72 rows=358 width=21) (actual time=2.720..374.314 rows=178 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   ->  Parallel Seq Scan on title  (cost=0.00..76097.92 rows=149 width=21) (actual time=9.884..368.845 rows=59 loops=3)
+         Filter: (title ~~ '%Godzilla%'::text)
+         Rows Removed by Filter: 1300932
+ Planning Time: 0.209 ms
+ Execution Time: 374.347 ms
+(8 lignes)

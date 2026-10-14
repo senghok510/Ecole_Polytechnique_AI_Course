@@ -1,0 +1,51 @@
+create table person(pid int primary key, firstname varchar, lastname varchar);
+insert into person values(1, 'Emmanuel', 'Macron');
+insert into person values(2, 'Edouard', 'Philippe');
+insert into person values(3, 'Elisabeth', 'Borne');
+insert into person values(4, 'Sébastien', 'Lecornu'); 
+insert into person values(5, 'Gabriel', 'Attal');
+insert into person values(6, 'Benoît', 'Hamon');
+insert into person values(7, 'François', 'Hollande');
+insert into person values(8, 'Nicolas', 'Hulot');
+insert into person values(9, 'Nicolas', 'Sarkozy');
+
+create table office(oid int primary key, positiontitle varchar, details varchar); 
+insert into office values(1, 'PR', 'Président de la République');
+insert into office values(2, 'PM', 'Premier Ministre');
+insert into office values(3, 'MinEco', 'Ministre de l''Ecologie');
+insert into office values(4, 'MinDef', 'Ministre de la Défense');
+insert into office values(5, 'MinEdu', 'Ministre de l''Education');
+
+create table heldOffice(pid int references person, oid int references office, ystart int, yend int);
+insert into heldOffice values(1, 1, 2017, 2027); -- Macron PR
+insert into heldOffice values(2, 2, 2017, 2020); -- Philippe PM
+insert into heldOffice values(3, 3, 2019, 2020); -- Borne transition écologique
+insert into heldOffice values(3, 2, 2022, 2024); -- Borne PM
+insert into heldOffice values(3, 5, 2024, 2025); -- Borne éducation
+insert into heldOffice values(4, 4, 2022, 2025); -- Lecornu PM
+insert into heldOffice values(5, 2, 2024, 2024); -- Attal PM
+insert into heldOffice values(5, 5, 2024, 2024); -- Attal éducation
+insert into heldOffice values(6, 5, 2014, 2014); -- Hamon éducation
+insert into heldOffice values(7, 1, 2012, 2016); -- Hollande PR
+insert into heldOffice values(8, 3, 2017, 2018); -- Hulot écologie
+insert into heldOffice values(9, 1, 2007, 2012); -- Sarkozy PR
+
+
+1. Find the last name of those whose first name is Nicolas?
+
+
+2. Find  the first name and the last name of those who were or are Prime Minister ?
+
+
+3. Find the first name and last name of those who held a position in 2023.
+
+4. For two distinct people A and B, we say B reported to A, if:
+- A was president and B held another office in year Y, OR
+- A was prime minister in year Y, and B had an office in year Y which was neither president nor prime minister.
+Find all the pairs (name of A, name of B).
+
+5. Find the first name and last name of people who were never Ministers of Defense.
+
+
+6. We say a group of people hold an office simultaneously if the start and end year of their offices are identical.
+ Find the start year and end year of the largest group of people who hold an office simultaneously.

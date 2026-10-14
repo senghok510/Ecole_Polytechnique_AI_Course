@@ -1,0 +1,1 @@
+Write a SQL query that returns the double-income, no kids proportion of households in 2019
